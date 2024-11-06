@@ -15,21 +15,22 @@ For every files :
 PreprocessingPipeline
 """
 
- class Loader:
+class Loader:
      """
      Loader for loading an audio file
      """
-     def __init__(self,sample_rate,duration,mono):
+
+     def __init__(self, sample_rate, duration, mono):
          self.sample_rate = sample_rate
          self.duration = duration
          self.mono = mono
 
      def load(self,file_path):
-         signal = librosa.load(file_path,
+          signal = librosa.load(file_path,
                               sr=self.sample_rate,
                               duration=self.duration,
                               mono=self.mono)[0]
-         return signal
+          return signal
 
 class Padder:
 
@@ -62,7 +63,7 @@ class SpecExtractor:
 
     def extract(self,signal):
         stft = librosa.stft(signal,
-                            nfft=self.frame_size,
+                            n_fft=self.frame_size,
                             hop_length=self.hop_length)[:-1] #to keep an even array size
         spectro = np.abs(stft)
         log_specto = librosa.amplitude_to_db(spectro)
@@ -107,7 +108,7 @@ class Saver:
     @staticmethod #on n'utilise pas d'attributs ou de methso de la class
     def _save(self, data, save_path):
         with open(save_path, "wb") as f:
-            pickle.dump(data, save_path)
+            pickle.dump(data, f)
 
     def _generate_save_path(self, file_path):
         file_name = os.path.split(file_path)[1] #return the head and the tail
@@ -122,7 +123,7 @@ class PreprocessingPipeline:
     """
 
     def __init__(self):
-        self.loader = None
+        #self.loader = None
         self.padder = None
         self.extractor = None
         self.normaliser = None
@@ -137,7 +138,7 @@ class PreprocessingPipeline:
 
     #every time we settle loader we have to set the number of exp
     @loader.setter
-    def loader(self, loader):
+    def loader(self,loader):
         self._loader = loader
         self._num_expected_samples = int(loader.sample_rate * loader.duration)
 
@@ -147,7 +148,7 @@ class PreprocessingPipeline:
                 file_path = os.path.join(root,file)
                 self._process_file(file_path)
                 print(f"Processed file {file_path}")
-        self.saver.save_min_max_values(self.min_max_values)
+        #self.saver.save_min_max_values(self.min_max_values)
 
     def _process_file(self, file_path):
         signal = self.loader.load(file_path)
@@ -163,7 +164,7 @@ class PreprocessingPipeline:
             return True
         return False
 
-    def apply_padding(self,signal):
+    def _apply_padding(self,signal):
         num_missing_items = self._num_expected_samples - len(signal)
         padded_signal = self.padder.right_pad(signal,num_missing_items)
         return padded_signal
@@ -173,6 +174,60 @@ class PreprocessingPipeline:
             "min" : min_value,
             "max" : max_value
         }
+
+if __name__ == "__main__":
+
+    frame_size = 512
+    hop_length = 256
+    duration = 1.0 #en seconde
+    mono = True #mode de padding (zero padding)
+    sample_rate = 16000
+
+    spectrogram_save_dir_bebop = "AudioSpectro/bebop/"
+    spectrogram_save_dir_membo = "AudioSpectro/membo"
+    spectrogram_save_dir_unknown = "AudioSpectro/unknown"
+    Min_Max_values_save_dir = "Min_Max_Value_save"
+    files_dir_bebop = "DroneAudioDataset/Multiclass_Drone_Audio/bebop_1"
+    files_dir_membo = "DroneAudioDataset/Multiclass_Drone_Audio/membo_1"
+    files_dir_unknown = "DroneAudioDataset/Multiclass_Drone_Audio/unknown"
+
+    loader = Loader(sample_rate,duration,mono)
+    padder = Padder()
+    extractor = SpecExtractor(frame_size,hop_length)
+    normaliser = MinMaxNormalizer(0,1)
+
+    saver1 = Saver(spectrogram_save_dir_bebop,Min_Max_values_save_dir)
+    preprocessing_pipeline_bebop = PreprocessingPipeline()
+    preprocessing_pipeline_bebop.loader = loader
+    preprocessing_pipeline_bebop.padder = padder
+    preprocessing_pipeline_bebop.extractor = extractor
+    preprocessing_pipeline_bebop.normaliser = normaliser
+    preprocessing_pipeline_bebop.saver = saver1
+    preprocessing_pipeline_bebop.process(files_dir_bebop)
+
+
+    saver2 = Saver(spectrogram_save_dir_membo,Min_Max_values_save_dir)
+    preprocessing_pipeline_membo = PreprocessingPipeline()
+    preprocessing_pipeline_membo.loader = loader
+    preprocessing_pipeline_membo.padder = padder
+    preprocessing_pipeline_membo.extractor = extractor
+    preprocessing_pipeline_membo.normaliser = normaliser
+    preprocessing_pipeline_membo.saver = saver2
+    preprocessing_pipeline_membo.process(files_dir_membo)
+
+    saver3 = Saver(spectrogram_save_dir_unknown,Min_Max_values_save_dir)
+    preprocessing_pipeline_unknown = PreprocessingPipeline()
+    preprocessing_pipeline_unknown.loader = loader
+    preprocessing_pipeline_unknown.padder = padder
+    preprocessing_pipeline_unknown.extractor = extractor
+    preprocessing_pipeline_unknown.normaliser = normaliser
+    preprocessing_pipeline_unknown.saver = saver3
+    preprocessing_pipeline_unknown.process(files_dir_unknown)
+
+
+
+
+
 
 
 
